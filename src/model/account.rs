@@ -34,53 +34,29 @@ impl Account {
 
     pub fn withdraw(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
-        if self.available >= amount {
-            self.available = (self.available - amount)
-                .expect("we already test if this subtraction would result in negative value");
-            Ok(())
-        } else {
-            Err(AccountActionError::InsufficientAvailableFunds)
-        }
+        self.available = self.available.checked_sub(amount).map_err(|_| AccountActionError::InsufficientAvailableFunds)?;
+        Ok(())
     }
 
     pub fn hold(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
-        if self.available >= amount {
-            self.available = (self.available - amount)
-                .expect("we already test if this subtraction would result in negative value");
-            self.held += amount;
-            Ok(())
-        } else {
-            Err(AccountActionError::InsufficientAvailableFunds)
-        }
+        self.available = self.available.checked_sub(amount).map_err(|_| AccountActionError::InsufficientAvailableFunds)?;
+        self.held += amount;
+        Ok(())
     }
 
     pub fn release(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
-        if self.held >= amount {
-            self.held = (self.held - amount)
-                .expect("we already test if this subtraction would result in negative value");
-            self.available += amount;
-            Ok(())
-        } else {
-            // It should never happen because we only release amounts that were put on hold,
-            // but for safety we still check and return an error if it happens.
-            Err(AccountActionError::InsufficientHeldFunds)
-        }
+        self.held = self.held.checked_sub(amount).map_err(|_| AccountActionError::InsufficientHeldFunds)?;
+        self.available += amount;
+        Ok(())
     }
 
     pub fn chargeback(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
-        if self.held >= amount {
-            self.held = (self.held - amount)
-                .expect("we already test if this subtraction would result in negative value");
-            self.locked = true;
-            Ok(())
-        } else {
-            // It should never happen because we only chargeback amounts that were put on hold,
-            // but for safety we still check and return an error if it happens.
-            Err(AccountActionError::InsufficientHeldFunds)
-        }
+        self.held = self.held.checked_sub(amount).map_err(|_| AccountActionError::InsufficientHeldFunds)?;
+        self.locked = true;
+        Ok(())
     }
 
     fn ensure_not_locked(&self) -> Result<(), AccountActionError> {

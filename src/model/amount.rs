@@ -1,6 +1,6 @@
 use std::{
     fmt,
-    ops::{Add, AddAssign, Sub},
+    ops::{Add, AddAssign},
 };
 
 use rust_decimal::Decimal;
@@ -9,7 +9,7 @@ use thiserror::Error;
 
 /// New Type wrapper around a monetary amount (up to 4 decimal places).
 // NOTE: The currently underlying `Decimal` allows for values approximately between -7e24 and 7e24.
-// Should this not be sufficient, we can consider using a different numeric type (e.g. u128/u256)
+// Should this not be sufficient, we can consider using a different numeric type (e.g. u128/u256).
 // or a custom implementation to handle larger ranges.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub struct Amount(Decimal);
@@ -51,10 +51,9 @@ impl AddAssign for Amount {
     }
 }
 
-impl Sub for Amount {
-    type Output = Result<Amount, AmountError>;
-
-    fn sub(self, rhs: Self) -> Self::Output {
+impl Amount {
+    /// Safely subtracts the given amount from this amount, returning an error if the result would be negative.
+    pub fn checked_sub(self, rhs: Self) -> Result<Self, AmountError> {
         if self.0 >= rhs.0 {
             Ok(Self(self.0 - rhs.0))
         } else {
