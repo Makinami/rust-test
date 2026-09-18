@@ -40,11 +40,14 @@ impl Account {
 
     // Balance manipulation methods
 
-    pub fn deposit(&mut self, amount: super::Amount) {
+    pub fn deposit(&mut self, amount: super::Amount) -> Result<(), &'static str> {
+        self.ensure_not_locked()?;
         self.available = self.available + amount;
+        Ok(())
     }
 
-    pub fn withdrawal(&mut self, amount: super::Amount) -> Result<(), &'static str> {
+    pub fn withdraw(&mut self, amount: super::Amount) -> Result<(), &'static str> {
+        self.ensure_not_locked()?;
         if self.available >= amount {
             self.available = self.available - amount;
             Ok(())
@@ -54,6 +57,7 @@ impl Account {
     }
 
     pub fn hold(&mut self, amount: super::Amount) -> Result<(), &'static str> {
+        self.ensure_not_locked()?;
         if self.available >= amount {
             self.available = self.available - amount;
             self.held = self.held + amount;
@@ -64,6 +68,7 @@ impl Account {
     }
 
     pub fn release(&mut self, amount: super::Amount) -> Result<(), &'static str> {
+        self.ensure_not_locked()?;
         if self.held >= amount {
             self.held = self.held - amount;
             self.available = self.available + amount;
@@ -74,12 +79,21 @@ impl Account {
     }
 
     pub fn chargeback(&mut self, amount: super::Amount) -> Result<(), &'static str> {
+        self.ensure_not_locked()?;
         if self.held >= amount {
             self.held = self.held - amount;
             self.locked = true;
             Ok(())
         } else {
             Err("Insufficient held funds for chargeback")
+        }
+    }
+
+    fn ensure_not_locked(&self) -> Result<(), &'static str> {
+        if self.locked {
+            Err("Account is locked")
+        } else {
+            Ok(())
         }
     }
 }

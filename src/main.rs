@@ -1,9 +1,12 @@
 mod model;
+mod processor;
 mod store;
 
-use model::Transaction;
+use model::IncomingTransaction;
 use std::env;
 use std::process::ExitCode;
+
+use crate::processor::TransactionProcessor;
 
 fn main() -> ExitCode {
     let Some(path) = env::args().nth(1) else {
@@ -23,11 +26,26 @@ fn main() -> ExitCode {
         }
     };
 
-    for result in reader.deserialize::<Transaction>() {
-        match result {
-            Ok(transaction) => println!("{transaction:?}"),
-            Err(err) => eprintln!("Skipping invalid row: {err}"),
+    let mut processor = TransactionProcessor::new(
+        store::InMemoryAccountStore::new(),
+        store::InMemoryTransactionStore::new(),
+    );
+
+    for transaction in reader.deserialize::<IncomingTransaction>() {
+        let transaction = transaction.unwrap();
+        processor.process_transaction(transaction);
+    }
+
+    let mut writer = csv::Writer::from_writer(std::io::stdout());
+    for account in processor.accounts() {
+        if let Err(err) = writer.serialize(account) {
+            eprintln!("Failed to serialize account: {err}");
+            return ExitCode::FAILURE;
         }
+    }
+    if let Err(err) = writer.flush() {
+        eprintln!("Failed to flush output: {err}");
+        return ExitCode::FAILURE;
     }
 
     ExitCode::SUCCESS

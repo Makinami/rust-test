@@ -1,8 +1,8 @@
-mod amount;
 mod account;
+mod amount;
 
-pub use amount::Amount;
 pub use account::Account;
+pub use amount::Amount;
 
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
@@ -15,7 +15,7 @@ pub struct ClientId(pub u16);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 pub struct TxId(pub u32);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DepositRecord {
     pub client: ClientId,
     pub tx: TxId,
@@ -23,9 +23,32 @@ pub struct DepositRecord {
     pub disputed: bool,
 }
 
+impl DepositRecord {
+    pub fn new(client: ClientId, tx: TxId, amount: Amount) -> Self {
+        Self {
+            client,
+            tx,
+            amount,
+            disputed: false,
+        }
+    }
+
+    pub fn is_disputed(&self) -> bool {
+        self.disputed
+    }
+
+    pub fn mark_disputed(&mut self) {
+        self.disputed = true;
+    }
+
+    pub fn clear_disputed(&mut self) {
+        self.disputed = false;
+    }
+}
+
 /// A single transaction record, shaped by its `type` column.
 #[derive(Debug)]
-pub enum Transaction {
+pub enum IncomingTransaction {
     Deposit {
         client: ClientId,
         tx: TxId,
@@ -66,39 +89,39 @@ struct RawRecord {
     amount: Option<Amount>,
 }
 
-impl<'de> Deserialize<'de> for Transaction {
+impl<'de> Deserialize<'de> for IncomingTransaction {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         let raw = RawRecord::deserialize(deserializer)?;
 
-        let with_amount = |make: fn(ClientId, TxId, Amount) -> Transaction| {
+        let with_amount = |make: fn(ClientId, TxId, Amount) -> IncomingTransaction| {
             raw.amount
                 .map(|amount| make(raw.client, raw.tx, amount))
                 .ok_or_else(|| de::Error::missing_field("amount"))
         };
 
         match raw.kind.as_str() {
-            "deposit" => with_amount(|client, tx, amount| Transaction::Deposit {
+            "deposit" => with_amount(|client, tx, amount| IncomingTransaction::Deposit {
                 client,
                 tx,
                 amount,
             }),
-            "withdrawal" => with_amount(|client, tx, amount| Transaction::Withdrawal {
+            "withdrawal" => with_amount(|client, tx, amount| IncomingTransaction::Withdrawal {
                 client,
                 tx,
                 amount,
             }),
-            "dispute" => Ok(Transaction::Dispute {
+            "dispute" => Ok(IncomingTransaction::Dispute {
                 client: raw.client,
                 tx: raw.tx,
             }),
-            "resolve" => Ok(Transaction::Resolve {
+            "resolve" => Ok(IncomingTransaction::Resolve {
                 client: raw.client,
                 tx: raw.tx,
             }),
-            "chargeback" => Ok(Transaction::Chargeback {
+            "chargeback" => Ok(IncomingTransaction::Chargeback {
                 client: raw.client,
                 tx: raw.tx,
             }),
