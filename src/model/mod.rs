@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 
 /// New Type wrapper around a client identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
-pub struct ClientId(pub u16);
+pub struct ClientId(u16);
 
 /// New Type wrapper around a transaction identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
-pub struct TxId(pub u32);
+pub struct TransactionId(u32);

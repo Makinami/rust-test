@@ -1,7 +1,8 @@
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Sub};
 
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 /// New Type wrapper around a monetary amount (up to 4 decimal places).
 // NOTE: The currently underlying `Decimal` allows for values approximately between -7e24 and 7e24.
@@ -16,9 +17,14 @@ impl Default for Amount {
     }
 }
 
-impl From<Decimal> for Amount {
-    fn from(value: Decimal) -> Self {
-        Self(value.round_dp(4))
+impl TryFrom<Decimal> for Amount {
+    type Error = AmountError;
+
+    fn try_from(value: Decimal) -> Result<Self, Self::Error> {
+        if value < Decimal::ZERO {
+            return Err(AmountError::Negative);
+        }
+        Ok(Self(value.round_dp(4)))
     }
 }
 
@@ -37,15 +43,19 @@ impl AddAssign for Amount {
 }
 
 impl Sub for Amount {
-    type Output = Amount;
+    type Output = Result<Amount, AmountError>;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Self(self.0 - rhs.0)
+        if self.0 >= rhs.0 {
+            Ok(Self(self.0 - rhs.0))
+        } else {
+            Err(AmountError::Negative)
+        }
     }
 }
 
-impl SubAssign for Amount {
-    fn sub_assign(&mut self, rhs: Self) {
-        self.0 -= rhs.0;
-    }
+#[derive(Debug, Error)]
+pub enum AmountError {
+    #[error("Amount cannot be negative")]
+    Negative,
 }

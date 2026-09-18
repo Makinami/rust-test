@@ -1,15 +1,15 @@
-use crate::model::{Amount, ClientId, TxId};
+use crate::model::{Amount, ClientId, TransactionId};
 
 #[derive(Debug, Clone)]
 pub struct DepositRecord {
     pub client: ClientId,
-    pub tx: TxId,
+    pub tx: TransactionId,
     pub amount: Amount,
     pub disputed: bool,
 }
 
 impl DepositRecord {
-    pub fn new(client: ClientId, tx: TxId, amount: Amount) -> Self {
+    pub fn new(client: ClientId, tx: TransactionId, amount: Amount) -> Self {
         Self {
             client,
             tx,

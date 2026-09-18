@@ -1,31 +1,32 @@
-use crate::model::{Amount, ClientId, TxId};
-use serde::de::{self, Deserializer};
+use crate::model::{Amount, ClientId, TransactionId};
 use serde::Deserialize;
+use serde::de::{self, Deserializer};
 
 /// A single transaction record, shaped by its `type` column.
 #[derive(Debug)]
 pub enum IncomingTransaction {
     Deposit {
         client: ClientId,
-        tx: TxId,
+        tx: TransactionId,
         amount: Amount,
     },
     Withdrawal {
         client: ClientId,
-        tx: TxId,
+        #[expect(unused)]
+        tx: TransactionId,
         amount: Amount,
     },
     Dispute {
         client: ClientId,
-        tx: TxId,
+        tx: TransactionId,
     },
     Resolve {
         client: ClientId,
-        tx: TxId,
+        tx: TransactionId,
     },
     Chargeback {
         client: ClientId,
-        tx: TxId,
+        tx: TransactionId,
     },
 }
 
@@ -40,7 +41,7 @@ struct RawRecord {
     #[serde(rename = "type")]
     kind: String,
     client: ClientId,
-    tx: TxId,
+    tx: TransactionId,
     #[serde(default, deserialize_with = "csv::invalid_option")]
     amount: Option<Amount>,
 }
@@ -52,7 +53,7 @@ impl<'de> Deserialize<'de> for IncomingTransaction {
     {
         let raw = RawRecord::deserialize(deserializer)?;
 
-        let with_amount = |make: fn(ClientId, TxId, Amount) -> IncomingTransaction| {
+        let with_amount = |make: fn(ClientId, TransactionId, Amount) -> IncomingTransaction| {
             raw.amount
                 .map(|amount| make(raw.client, raw.tx, amount))
                 .ok_or_else(|| de::Error::missing_field("amount"))

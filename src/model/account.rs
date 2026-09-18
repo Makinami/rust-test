@@ -1,3 +1,5 @@
+use thiserror::Error;
+
 #[derive(Debug, Clone)]
 pub struct Account {
     client_id: super::ClientId,
@@ -18,84 +20,82 @@ impl Account {
 
     // Getters
 
-    pub fn client_id(&self) -> super::ClientId {
-        self.client_id
-    }
-
-    pub fn available(&self) -> super::Amount {
-        self.available
-    }
-
-    pub fn held(&self) -> super::Amount {
-        self.held
-    }
-
     pub fn total(&self) -> super::Amount {
         self.available + self.held
     }
 
-    pub fn locked(&self) -> bool {
-        self.locked
-    }
-
     // Balance manipulation methods
 
-    pub fn deposit(&mut self, amount: super::Amount) -> Result<(), &'static str> {
+    pub fn deposit(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
         self.available = self.available + amount;
         Ok(())
     }
 
-    pub fn withdraw(&mut self, amount: super::Amount) -> Result<(), &'static str> {
+    pub fn withdraw(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
         if self.available >= amount {
-            self.available = self.available - amount;
+            self.available = (self.available - amount).expect("we already test if this subtraction would result in negative value");
             Ok(())
         } else {
-            Err("Insufficient available funds")
+            Err(AccountActionError::InsufficientAvailableFunds)
         }
     }
 
-    pub fn hold(&mut self, amount: super::Amount) -> Result<(), &'static str> {
+    pub fn hold(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
         if self.available >= amount {
-            self.available = self.available - amount;
+            self.available = (self.available - amount).expect("we already test if this subtraction would result in negative value");
             self.held = self.held + amount;
             Ok(())
         } else {
-            Err("Insufficient available funds to hold")
+            Err(AccountActionError::InsufficientAvailableFunds)
         }
     }
 
-    pub fn release(&mut self, amount: super::Amount) -> Result<(), &'static str> {
+    pub fn release(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
         if self.held >= amount {
-            self.held = self.held - amount;
+            self.held = (self.held - amount).expect("we already test if this subtraction would result in negative value");
             self.available = self.available + amount;
             Ok(())
         } else {
-            Err("Insufficient held funds to release")
+            // It should never happen because we only release amounts that were put on hold,
+            // but for safety we still check and return an error if it happens.
+            Err(AccountActionError::InsufficientHeldFunds)
         }
     }
 
-    pub fn chargeback(&mut self, amount: super::Amount) -> Result<(), &'static str> {
+    pub fn chargeback(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
         if self.held >= amount {
-            self.held = self.held - amount;
+            self.held = (self.held - amount).expect("we already test if this subtraction would result in negative value");
             self.locked = true;
             Ok(())
         } else {
-            Err("Insufficient held funds for chargeback")
+            // It should never happen because we only chargeback amounts that were put on hold,
+            // but for safety we still check and return an error if it happens.
+            Err(AccountActionError::InsufficientHeldFunds)
         }
     }
 
-    fn ensure_not_locked(&self) -> Result<(), &'static str> {
+    fn ensure_not_locked(&self) -> Result<(), AccountActionError> {
         if self.locked {
-            Err("Account is locked")
+            Err(AccountActionError::AccountLocked)
         } else {
             Ok(())
         }
     }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum AccountActionError {
+    #[error("Insufficient available funds")]
+    InsufficientAvailableFunds,
+    #[error("Insufficient held funds")]
+    InsufficientHeldFunds,
+    #[error("Account is locked")]
+    AccountLocked,
 }
 
 // Manual impl so the CSV column order/names (client, available, held, total, locked)

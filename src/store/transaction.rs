@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 
-use crate::model::{DepositRecord, TxId};
+use crate::model::{DepositRecord, TransactionId};
 
 pub trait TransactionStore {
     fn upsert(&mut self, record: DepositRecord);
 
-    fn get(&self, tx: TxId) -> Option<&DepositRecord>;
+    fn get(&self, tx: TransactionId) -> Option<&DepositRecord>;
 }
 
 pub struct InMemoryTransactionStore {
-    records: HashMap<TxId, DepositRecord>,
+    records: HashMap<TransactionId, DepositRecord>,
 }
 
 impl InMemoryTransactionStore {
@@ -25,7 +25,7 @@ impl TransactionStore for InMemoryTransactionStore {
         self.records.insert(record.tx, record);
     }
 
-    fn get(&self, tx: TxId) -> Option<&DepositRecord> {
+    fn get(&self, tx: TransactionId) -> Option<&DepositRecord> {
         self.records.get(&tx)
     }
 }
