@@ -15,6 +15,14 @@ pub struct ClientId(pub u16);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 pub struct TxId(pub u32);
 
+#[derive(Debug)]
+pub struct DepositRecord {
+    pub client: ClientId,
+    pub tx: TxId,
+    pub amount: Amount,
+    pub disputed: bool,
+}
+
 /// A single transaction record, shaped by its `type` column.
 #[derive(Debug)]
 pub enum Transaction {
