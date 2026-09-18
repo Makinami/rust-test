@@ -1,12 +1,13 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use rust_decimal::Decimal;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// New Type wrapper around a monetary amount (up to 4 decimal places).
-///
-/// The underlying `Decimal` is kept private; use `From<Decimal>` impl to construct one.
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+// NOTE: The currently underlying `Decimal` allows for values approximately between -7e24 and 7e24.
+// Should this not be sufficient, we can consider using a different numeric type (e.g. u128/u256)
+// or a custom implementation to handle larger ranges.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub struct Amount(Decimal);
 
 impl Default for Amount {
@@ -17,7 +18,7 @@ impl Default for Amount {
 
 impl From<Decimal> for Amount {
     fn from(value: Decimal) -> Self {
-        Self::new(value)
+        Self(value.round_dp(4))
     }
 }
 

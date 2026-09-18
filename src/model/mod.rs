@@ -1,12 +1,14 @@
 mod amount;
+mod account;
 
 pub use amount::Amount;
+pub use account::Account;
 
 use serde::de::{self, Deserializer};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// New Type wrapper around a client identifier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct ClientId(pub u16);
 
 /// New Type wrapper around a transaction identifier.
