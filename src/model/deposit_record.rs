@@ -1,0 +1,32 @@
+use crate::model::{Amount, ClientId, TxId};
+
+#[derive(Debug, Clone)]
+pub struct DepositRecord {
+    pub client: ClientId,
+    pub tx: TxId,
+    pub amount: Amount,
+    pub disputed: bool,
+}
+
+impl DepositRecord {
+    pub fn new(client: ClientId, tx: TxId, amount: Amount) -> Self {
+        Self {
+            client,
+            tx,
+            amount,
+            disputed: false,
+        }
+    }
+
+    pub fn is_disputed(&self) -> bool {
+        self.disputed
+    }
+
+    pub fn mark_disputed(&mut self) {
+        self.disputed = true;
+    }
+
+    pub fn clear_disputed(&mut self) {
+        self.disputed = false;
+    }
+}
