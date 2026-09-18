@@ -35,7 +35,8 @@ impl Account {
     pub fn withdraw(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
         if self.available >= amount {
-            self.available = (self.available - amount).expect("we already test if this subtraction would result in negative value");
+            self.available = (self.available - amount)
+                .expect("we already test if this subtraction would result in negative value");
             Ok(())
         } else {
             Err(AccountActionError::InsufficientAvailableFunds)
@@ -45,7 +46,8 @@ impl Account {
     pub fn hold(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
         if self.available >= amount {
-            self.available = (self.available - amount).expect("we already test if this subtraction would result in negative value");
+            self.available = (self.available - amount)
+                .expect("we already test if this subtraction would result in negative value");
             self.held += amount;
             Ok(())
         } else {
@@ -56,7 +58,8 @@ impl Account {
     pub fn release(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
         if self.held >= amount {
-            self.held = (self.held - amount).expect("we already test if this subtraction would result in negative value");
+            self.held = (self.held - amount)
+                .expect("we already test if this subtraction would result in negative value");
             self.available += amount;
             Ok(())
         } else {
@@ -69,7 +72,8 @@ impl Account {
     pub fn chargeback(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
         if self.held >= amount {
-            self.held = (self.held - amount).expect("we already test if this subtraction would result in negative value");
+            self.held = (self.held - amount)
+                .expect("we already test if this subtraction would result in negative value");
             self.locked = true;
             Ok(())
         } else {

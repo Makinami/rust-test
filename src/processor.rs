@@ -2,6 +2,7 @@ use crate::{
     model::{Account, DepositRecord, IncomingTransaction},
     store::{AccountStore, TransactionStore},
 };
+use log::info;
 
 pub struct TransactionProcessor<A: AccountStore, D: TransactionStore> {
     account_store: A,
@@ -22,11 +23,14 @@ impl<A: AccountStore, D: TransactionStore> TransactionProcessor<A, D> {
 }
 
 impl<A: AccountStore, D: TransactionStore> TransactionProcessor<A, D> {
-    pub fn process_transaction(&mut self, transaction: IncomingTransaction) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn process_transaction(
+        &mut self,
+        transaction: IncomingTransaction,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         macro_rules! skip_on_error {
             ($obj:ident . $method:ident ( $($args:tt)* )) => {
                 if let Err(err) = $obj.$method($($args)*) {
-                    eprintln!("Ignoring {} transaction due to account state error: {:?}", stringify!($method), err);
+                    info!("Ignoring {} transaction due to account state error: {:?}", stringify!($method), err);
                     return Ok(());
                 }
             };

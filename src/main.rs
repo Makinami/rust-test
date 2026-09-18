@@ -3,6 +3,7 @@ mod processor;
 mod store;
 
 use clap::Parser;
+use log::error;
 use model::IncomingTransaction;
 
 use crate::processor::TransactionProcessor;
@@ -15,13 +16,16 @@ struct Cli {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
+
     let cli = Cli::parse();
     let path = cli.path;
 
     let mut reader = csv::ReaderBuilder::new()
         .trim(csv::Trim::All)
         .flexible(true)
-        .from_path(&path)?;
+        .from_path(&path)
+        .inspect_err(|_| error!("Failed to open the file: {path}"))?;
 
     let mut processor = TransactionProcessor::new(
         store::InMemoryAccountStore::new(),
@@ -30,15 +34,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for transaction in reader.deserialize::<IncomingTransaction>() {
         let transaction = transaction.unwrap();
-        if let Err(err) = processor.process_transaction(transaction) {
-            eprintln!("Critical error when processing transaction: {err}");
-            return Err(err);
-        }
+        processor
+            .process_transaction(transaction)
+            .inspect_err(|err| error!("Critical error when processing transaction: {err}"))?;
     }
 
     let mut writer = csv::Writer::from_writer(std::io::stdout());
     for account in processor.accounts() {
-        writer.serialize(account)?;
+        writer
+            .serialize(account)
+            .inspect_err(|err| error!("Failed to serialize an account: {err}"))?;
     }
 
     Ok(())

@@ -1,4 +1,7 @@
-use std::{fmt, ops::{Add, AddAssign, Sub}};
+use std::{
+    fmt,
+    ops::{Add, AddAssign, Sub},
+};
 
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
