@@ -4,7 +4,6 @@ mod store;
 
 use clap::Parser;
 use model::IncomingTransaction;
-use std::process::ExitCode;
 
 use crate::processor::TransactionProcessor;
 
@@ -15,21 +14,14 @@ struct Cli {
     path: String,
 }
 
-fn main() -> ExitCode {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     let path = cli.path;
 
-    let mut reader = match csv::ReaderBuilder::new()
+    let mut reader = csv::ReaderBuilder::new()
         .trim(csv::Trim::All)
         .flexible(true)
-        .from_path(&path)
-    {
-        Ok(reader) => reader,
-        Err(err) => {
-            eprintln!("Failed to open '{path}': {err}");
-            return ExitCode::FAILURE;
-        }
-    };
+        .from_path(&path)?;
 
     let mut processor = TransactionProcessor::new(
         store::InMemoryAccountStore::new(),
@@ -38,20 +30,16 @@ fn main() -> ExitCode {
 
     for transaction in reader.deserialize::<IncomingTransaction>() {
         let transaction = transaction.unwrap();
-        processor.process_transaction(transaction);
+        if let Err(err) = processor.process_transaction(transaction) {
+            eprintln!("Critical error when processing transaction: {err}");
+            return Err(err);
+        }
     }
 
     let mut writer = csv::Writer::from_writer(std::io::stdout());
     for account in processor.accounts() {
-        if let Err(err) = writer.serialize(account) {
-            eprintln!("Failed to serialize account: {err}");
-            return ExitCode::FAILURE;
-        }
-    }
-    if let Err(err) = writer.flush() {
-        eprintln!("Failed to flush output: {err}");
-        return ExitCode::FAILURE;
+        writer.serialize(account)?;
     }
 
-    ExitCode::SUCCESS
+    Ok(())
 }

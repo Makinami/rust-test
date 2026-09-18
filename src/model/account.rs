@@ -28,7 +28,7 @@ impl Account {
 
     pub fn deposit(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
-        self.available = self.available + amount;
+        self.available += amount;
         Ok(())
     }
 
@@ -46,7 +46,7 @@ impl Account {
         self.ensure_not_locked()?;
         if self.available >= amount {
             self.available = (self.available - amount).expect("we already test if this subtraction would result in negative value");
-            self.held = self.held + amount;
+            self.held += amount;
             Ok(())
         } else {
             Err(AccountActionError::InsufficientAvailableFunds)
@@ -57,7 +57,7 @@ impl Account {
         self.ensure_not_locked()?;
         if self.held >= amount {
             self.held = (self.held - amount).expect("we already test if this subtraction would result in negative value");
-            self.available = self.available + amount;
+            self.available += amount;
             Ok(())
         } else {
             // It should never happen because we only release amounts that were put on hold,

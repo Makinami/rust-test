@@ -29,4 +29,8 @@ impl DepositRecord {
     pub fn clear_disputed(&mut self) {
         self.disputed = false;
     }
+
+    pub fn belongs_to(&self, client: ClientId) -> bool {
+        self.client == client
+    }
 }

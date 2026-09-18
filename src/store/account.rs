@@ -5,7 +5,6 @@ use crate::model::{Account, ClientId};
 pub trait AccountStore {
     fn get_mut(&mut self, client_id: ClientId) -> &mut Account;
 
-    // TODO: Triple check, but add comment about `impl Trait` vs `Box<dyn Iterator>` for the `iter` method.
     fn iter(&self) -> impl Iterator<Item = &Account> + '_;
 }
 
