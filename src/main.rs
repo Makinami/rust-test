@@ -2,17 +2,22 @@ mod model;
 mod processor;
 mod store;
 
+use clap::Parser;
 use model::IncomingTransaction;
-use std::env;
 use std::process::ExitCode;
 
 use crate::processor::TransactionProcessor;
 
+#[derive(Parser)]
+#[command(version, about = "Process transaction records from a CSV file")]
+struct Cli {
+    /// Path to the transactions CSV file.
+    path: String,
+}
+
 fn main() -> ExitCode {
-    let Some(path) = env::args().nth(1) else {
-        eprintln!("Usage: rust-test <transactions.csv>");
-        return ExitCode::FAILURE;
-    };
+    let cli = Cli::parse();
+    let path = cli.path;
 
     let mut reader = match csv::ReaderBuilder::new()
         .trim(csv::Trim::All)
