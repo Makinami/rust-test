@@ -1,12 +1,8 @@
-mod model;
-mod processor;
-mod store;
-
 use clap::Parser;
 use log::error;
-use model::IncomingTransaction;
-
-use crate::processor::TransactionProcessor;
+use rust_test::model::IncomingTransaction;
+use rust_test::processor::TransactionProcessor;
+use rust_test::store;
 
 #[derive(Parser)]
 #[command(version, about = "Process transaction records from a CSV file")]
