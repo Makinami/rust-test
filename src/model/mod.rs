@@ -14,6 +14,26 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct ClientId(u16);
 
+impl ClientId {
+    pub fn new(id: u16) -> Self {
+        Self(id)
+    }
+
+    pub fn as_u16(&self) -> u16 {
+        self.0
+    }
+}
+
 /// New Type wrapper around a transaction identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 pub struct TransactionId(u32);
+
+impl TransactionId {
+    pub fn new(id: u32) -> Self {
+        Self(id)
+    }
+
+    pub fn as_u32(&self) -> u32 {
+        self.0
+    }
+}
