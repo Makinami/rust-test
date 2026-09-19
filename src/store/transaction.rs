@@ -197,7 +197,8 @@ mod tests {
     #[test]
     fn get_reads_back_record_still_in_memory() {
         let db_path = NamedTempFile::new().unwrap();
-        let mut store = SqliteTransactionStore::new(db_path.path(), Capacity::Elements(10)).unwrap();
+        let mut store =
+            SqliteTransactionStore::new(db_path.path(), Capacity::Elements(10)).unwrap();
 
         store.upsert(record(1, 42, "1.5")).unwrap();
 

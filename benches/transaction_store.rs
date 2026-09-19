@@ -100,7 +100,8 @@ fn bench_get(c: &mut Criterion) {
 
         let db_path = tempfile::NamedTempFile::new().unwrap();
         let mut sqlite_store =
-            SqliteTransactionStore::new(db_path.path(), Capacity::Elements(SQLITE_CAPACITY)).unwrap();
+            SqliteTransactionStore::new(db_path.path(), Capacity::Elements(SQLITE_CAPACITY))
+                .unwrap();
         for i in 0..size {
             sqlite_store.upsert(make_record(i)).unwrap();
         }

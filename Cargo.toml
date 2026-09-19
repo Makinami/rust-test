@@ -25,6 +25,7 @@ rust_decimal = { version = "1.43.0", features = ["serde"] }
 serde = { version = "1.0.229", features = ["derive"] }
 tempfile = "3.27.0"
 thiserror = "2.0.0"
+tokio = { version = "1.41.0", features = ["full"] }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }
