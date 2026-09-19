@@ -31,6 +31,7 @@ impl Amount {
 }
 
 // Mainly for convenience when dealing with integer literals.
+#[cfg(test)]
 impl From<u32> for Amount {
     fn from(value: u32) -> Self {
         Self(Decimal::from(value))

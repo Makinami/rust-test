@@ -20,6 +20,18 @@ impl Account {
 
     // Getters
 
+    pub fn client_id(&self) -> super::ClientId {
+        self.client_id
+    }
+
+    pub fn available(&self) -> super::Amount {
+        self.available
+    }
+
+    pub fn held(&self) -> super::Amount {
+        self.held
+    }
+
     pub fn total(&self) -> super::Amount {
         self.available + self.held
     }
@@ -154,7 +166,10 @@ mod tests {
         let mut account = super::Account::new(ClientId::new(1));
         account.available = 1u32.into();
         let amount = 2u32.into();
-        assert!(matches!(account.withdraw(amount), Err(AccountActionError::InsufficientAvailableFunds)));
+        assert!(matches!(
+            account.withdraw(amount),
+            Err(AccountActionError::InsufficientAvailableFunds)
+        ));
     }
 
     #[test]
@@ -172,7 +187,10 @@ mod tests {
         let mut account = super::Account::new(ClientId::new(1));
         account.available = 1u32.into();
         let amount = 2u32.into();
-        assert!(matches!(account.hold(amount), Err(AccountActionError::InsufficientAvailableFunds)));
+        assert!(matches!(
+            account.hold(amount),
+            Err(AccountActionError::InsufficientAvailableFunds)
+        ));
     }
 
     #[test]
@@ -190,7 +208,10 @@ mod tests {
         let mut account = super::Account::new(ClientId::new(1));
         account.held = 1u32.into();
         let amount = 2u32.into();
-        assert!(matches!(account.release(amount), Err(AccountActionError::InsufficientHeldFunds)));
+        assert!(matches!(
+            account.release(amount),
+            Err(AccountActionError::InsufficientHeldFunds)
+        ));
     }
 
     #[test]
@@ -208,18 +229,36 @@ mod tests {
         let mut account = super::Account::new(ClientId::new(1));
         account.held = 1u32.into();
         let amount = 2u32.into();
-        assert!(matches!(account.chargeback(amount), Err(AccountActionError::InsufficientHeldFunds)));
+        assert!(matches!(
+            account.chargeback(amount),
+            Err(AccountActionError::InsufficientHeldFunds)
+        ));
     }
 
     #[test]
     fn no_operation_can_be_performed_on_locked_account() {
         let mut account = super::Account::new(ClientId::new(1));
         account.locked = true;
-        
-        assert!(matches!(account.deposit(Amount::ZERO), Err(AccountActionError::AccountLocked)));
-        assert!(matches!(account.withdraw(Amount::ZERO), Err(AccountActionError::AccountLocked)));
-        assert!(matches!(account.hold(Amount::ZERO), Err(AccountActionError::AccountLocked)));
-        assert!(matches!(account.release(Amount::ZERO), Err(AccountActionError::AccountLocked)));
-        assert!(matches!(account.chargeback(Amount::ZERO), Err(AccountActionError::AccountLocked)));
+
+        assert!(matches!(
+            account.deposit(Amount::ZERO),
+            Err(AccountActionError::AccountLocked)
+        ));
+        assert!(matches!(
+            account.withdraw(Amount::ZERO),
+            Err(AccountActionError::AccountLocked)
+        ));
+        assert!(matches!(
+            account.hold(Amount::ZERO),
+            Err(AccountActionError::AccountLocked)
+        ));
+        assert!(matches!(
+            account.release(Amount::ZERO),
+            Err(AccountActionError::AccountLocked)
+        ));
+        assert!(matches!(
+            account.chargeback(Amount::ZERO),
+            Err(AccountActionError::AccountLocked)
+        ));
     }
 }

@@ -178,11 +178,7 @@ mod tests {
     use tempfile::NamedTempFile;
 
     fn record(client: u16, tx: u32, amount: u32) -> DepositRecord {
-        DepositRecord::new(
-            ClientId::new(client),
-            TransactionId::new(tx),
-            amount.into(),
-        )
+        DepositRecord::new(ClientId::new(client), TransactionId::new(tx), amount.into())
     }
 
     #[test]
@@ -203,10 +199,7 @@ mod tests {
 
         let fetched = store.get(TransactionId::new(42)).unwrap().unwrap();
         assert_eq!(fetched.client, ClientId::new(1));
-        assert_eq!(
-            fetched.amount,
-            15u32.into()
-        );
+        assert_eq!(fetched.amount, 15u32.into());
         assert!(!fetched.disputed);
     }
 

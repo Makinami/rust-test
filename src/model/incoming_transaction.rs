@@ -29,6 +29,34 @@ pub enum IncomingTransaction {
     },
 }
 
+// Convenience constructors for test purposes. We can remove cfg(test) predicate if we want these available in non-test code as well.
+impl IncomingTransaction {
+    #[cfg(test)]
+    pub fn deposit(client: ClientId, tx: TransactionId, amount: Amount) -> Self {
+        IncomingTransaction::Deposit { client, tx, amount }
+    }
+
+    #[cfg(test)]
+    pub fn withdrawal(client: ClientId, tx: TransactionId, amount: Amount) -> Self {
+        IncomingTransaction::Withdrawal { client, tx, amount }
+    }
+
+    #[cfg(test)]
+    pub fn dispute(client: ClientId, tx: TransactionId) -> Self {
+        IncomingTransaction::Dispute { client, tx }
+    }
+
+    #[cfg(test)]
+    pub fn resolve(client: ClientId, tx: TransactionId) -> Self {
+        IncomingTransaction::Resolve { client, tx }
+    }
+
+    #[cfg(test)]
+    pub fn chargeback(client: ClientId, tx: TransactionId) -> Self {
+        IncomingTransaction::Chargeback { client, tx }
+    }
+}
+
 /// Flat, positional representation of a CSV row, matching the raw columns.
 ///
 /// CSV rows aren't self-describing the way JSON objects are, so we can't rely
@@ -154,7 +182,7 @@ mod tests {
             _ => panic!("Expected Resolve variant"),
         }
     }
-    
+
     #[test]
     fn test_deserialize_chargeback() {
         let csv_data = "type,client,tx,amount\n\
