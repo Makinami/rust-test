@@ -1,9 +1,13 @@
 use std::{fs, path::PathBuf};
 
-use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{
+    BatchSize, BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main,
+};
 use rust_decimal::Decimal;
 use rust_test::model::{Amount, ClientId, DepositRecord, TransactionId};
-use rust_test::store::{InMemoryTransactionStore, SqliteTransactionStore, TransactionStore};
+use rust_test::store::{
+    Capacity, InMemoryTransactionStore, SqliteTransactionStore, TransactionStore,
+};
 
 /// Record counts chosen to simulate small, medium, and large real-world data sets.
 const SIZES: [u64; 2] = [100, 10_000];
@@ -61,7 +65,10 @@ fn bench_upsert(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("sqlite", size), &size, |b, &size| {
             let db_path = TempDbPath::new(&format!("upsert-{size}"));
             b.iter_batched(
-                || SqliteTransactionStore::new(&db_path.0, SQLITE_CAPACITY).unwrap(),
+                || {
+                    SqliteTransactionStore::new(&db_path.0, Capacity::Elements(SQLITE_CAPACITY))
+                        .unwrap()
+                },
                 |mut store| {
                     for i in 0..size {
                         store.upsert(black_box(make_record(i))).unwrap();
@@ -85,7 +92,10 @@ fn bench_get(c: &mut Criterion) {
         // recently inserted, not yet flushed) and reads that fall through to
         // disk (flushed earlier due to reaching SQLITE_CAPACITY).
         let step = (size / 100).max(1);
-        let sample_txs: Vec<TransactionId> = (0..size).step_by(step as usize).map(|i| TransactionId::new(i as u32)).collect();
+        let sample_txs: Vec<TransactionId> = (0..size)
+            .step_by(step as usize)
+            .map(|i| TransactionId::new(i as u32))
+            .collect();
 
         // Report the per-lookup (amortized) cost rather than the total batch
         // time, since `sample_txs.len()` lookups are performed per iteration.
@@ -96,27 +106,36 @@ fn bench_get(c: &mut Criterion) {
             in_memory_store.upsert(make_record(i)).unwrap();
         }
 
-        group.bench_with_input(BenchmarkId::new("in_memory", size), &sample_txs, |b, sample_txs| {
-            b.iter(|| {
-                for &tx in sample_txs {
-                    black_box(in_memory_store.get(tx).unwrap());
-                }
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::new("in_memory", size),
+            &sample_txs,
+            |b, sample_txs| {
+                b.iter(|| {
+                    for &tx in sample_txs {
+                        black_box(in_memory_store.get(tx).unwrap());
+                    }
+                });
+            },
+        );
 
         let db_path = TempDbPath::new(&format!("get-{size}"));
-        let mut sqlite_store = SqliteTransactionStore::new(&db_path.0, SQLITE_CAPACITY).unwrap();
+        let mut sqlite_store =
+            SqliteTransactionStore::new(&db_path.0, Capacity::Elements(SQLITE_CAPACITY)).unwrap();
         for i in 0..size {
             sqlite_store.upsert(make_record(i)).unwrap();
         }
 
-        group.bench_with_input(BenchmarkId::new("sqlite", size), &sample_txs, |b, sample_txs| {
-            b.iter(|| {
-                for &tx in sample_txs {
-                    black_box(sqlite_store.get(tx).unwrap());
-                }
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::new("sqlite", size),
+            &sample_txs,
+            |b, sample_txs| {
+                b.iter(|| {
+                    for &tx in sample_txs {
+                        black_box(sqlite_store.get(tx).unwrap());
+                    }
+                });
+            },
+        );
     }
 
     group.finish();

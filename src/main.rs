@@ -23,9 +23,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .from_path(&path)
         .inspect_err(|_| error!("Failed to open the file: {path}"))?;
 
+    let db_file = tempfile::NamedTempFile::new()?;
+
     let mut processor = TransactionProcessor::new(
         store::InMemoryAccountStore::new(),
-        store::InMemoryTransactionStore::new(),
+        store::SqliteTransactionStore::new(db_file.path(), store::Capacity::Megabytes(100))
+            .inspect_err(|err| error!("Failed to open the SQLite store: {err}"))?,
     );
 
     for transaction in reader.deserialize::<IncomingTransaction>() {

@@ -12,6 +12,12 @@ pub struct InMemoryAccountStore {
     accounts: HashMap<ClientId, Account>,
 }
 
+impl Default for InMemoryAccountStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InMemoryAccountStore {
     pub fn new() -> Self {
         Self {

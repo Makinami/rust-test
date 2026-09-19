@@ -34,27 +34,39 @@ impl Account {
 
     pub fn withdraw(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
-        self.available = self.available.checked_sub(amount).map_err(|_| AccountActionError::InsufficientAvailableFunds)?;
+        self.available = self
+            .available
+            .checked_sub(amount)
+            .map_err(|_| AccountActionError::InsufficientAvailableFunds)?;
         Ok(())
     }
 
     pub fn hold(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
-        self.available = self.available.checked_sub(amount).map_err(|_| AccountActionError::InsufficientAvailableFunds)?;
+        self.available = self
+            .available
+            .checked_sub(amount)
+            .map_err(|_| AccountActionError::InsufficientAvailableFunds)?;
         self.held += amount;
         Ok(())
     }
 
     pub fn release(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
-        self.held = self.held.checked_sub(amount).map_err(|_| AccountActionError::InsufficientHeldFunds)?;
+        self.held = self
+            .held
+            .checked_sub(amount)
+            .map_err(|_| AccountActionError::InsufficientHeldFunds)?;
         self.available += amount;
         Ok(())
     }
 
     pub fn chargeback(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
-        self.held = self.held.checked_sub(amount).map_err(|_| AccountActionError::InsufficientHeldFunds)?;
+        self.held = self
+            .held
+            .checked_sub(amount)
+            .map_err(|_| AccountActionError::InsufficientHeldFunds)?;
         self.locked = true;
         Ok(())
     }

@@ -16,6 +16,12 @@ pub struct InMemoryTransactionStore {
     records: HashMap<TransactionId, DepositRecord>,
 }
 
+impl Default for InMemoryTransactionStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InMemoryTransactionStore {
     pub fn new() -> Self {
         Self {
@@ -46,10 +52,22 @@ pub struct SqliteTransactionStore {
     capacity: usize,
 }
 
+/// Specifies the capacity of the in-memory cache for the [`SqliteTransactionStore`].
+pub enum Capacity {
+    /// Capacity measured in number of elements (records).
+    Elements(usize),
+    /// Capacity measured in megabytes.
+    /// This is an approximate measure, as the actual memory usage may vary depending on the system and Rust's memory layout.
+    Megabytes(usize),
+}
+
 impl SqliteTransactionStore {
     /// Opens (creating if needed) a SQLite database at `db_path`, used to
     /// overflow records once more than `capacity` are held in memory.
-    pub fn new(db_path: impl AsRef<Path>, capacity: usize) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(
+        db_path: impl AsRef<Path>,
+        capacity: Capacity,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let conn = Connection::open(db_path)?;
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS deposit_records (
@@ -63,7 +81,12 @@ impl SqliteTransactionStore {
         Ok(Self {
             records: HashMap::new(),
             conn,
-            capacity,
+            capacity: match capacity {
+                Capacity::Elements(n) => n,
+                Capacity::Megabytes(mb) => {
+                    mb * 1_024 * 1_024 / std::mem::size_of::<DepositRecord>()
+                }
+            },
         })
     }
 
@@ -100,7 +123,10 @@ impl SqliteTransactionStore {
         Ok(())
     }
 
-    fn get_from_db(&self, tx: TransactionId) -> Result<Option<DepositRecord>, Box<dyn std::error::Error>> {
+    fn get_from_db(
+        &self,
+        tx: TransactionId,
+    ) -> Result<Option<DepositRecord>, Box<dyn std::error::Error>> {
         let row = self
             .conn
             .query_row(
@@ -187,7 +213,7 @@ mod tests {
     #[test]
     fn get_returns_none_for_unknown_tx() {
         let db_path = TempDbPath::new("unknown");
-        let store = SqliteTransactionStore::new(&db_path.0, 10).unwrap();
+        let store = SqliteTransactionStore::new(&db_path.0, Capacity::Elements(10)).unwrap();
 
         assert!(store.get(TransactionId::new(1)).unwrap().is_none());
     }
@@ -195,20 +221,23 @@ mod tests {
     #[test]
     fn get_reads_back_record_still_in_memory() {
         let db_path = TempDbPath::new("in-memory");
-        let mut store = SqliteTransactionStore::new(&db_path.0, 10).unwrap();
+        let mut store = SqliteTransactionStore::new(&db_path.0, Capacity::Elements(10)).unwrap();
 
         store.upsert(record(1, 42, "1.5")).unwrap();
 
         let fetched = store.get(TransactionId::new(42)).unwrap().unwrap();
         assert_eq!(fetched.client, ClientId::new(1));
-        assert_eq!(fetched.amount.as_decimal(), "1.5".parse::<Decimal>().unwrap());
+        assert_eq!(
+            fetched.amount.as_decimal(),
+            "1.5".parse::<Decimal>().unwrap()
+        );
         assert!(!fetched.disputed);
     }
 
     #[test]
     fn upsert_flushes_to_sqlite_once_capacity_is_reached() {
         let db_path = TempDbPath::new("flush");
-        let mut store = SqliteTransactionStore::new(&db_path.0, 2).unwrap();
+        let mut store = SqliteTransactionStore::new(&db_path.0, Capacity::Elements(2)).unwrap();
 
         store.upsert(record(1, 1, "10")).unwrap();
         assert_eq!(store.records.len(), 1);
@@ -227,7 +256,7 @@ mod tests {
     #[test]
     fn upsert_after_flush_updates_existing_row_in_sqlite() {
         let db_path = TempDbPath::new("update");
-        let mut store = SqliteTransactionStore::new(&db_path.0, 1).unwrap();
+        let mut store = SqliteTransactionStore::new(&db_path.0, Capacity::Elements(1)).unwrap();
 
         // capacity of 1 flushes on every upsert.
         store.upsert(record(1, 7, "5")).unwrap();
