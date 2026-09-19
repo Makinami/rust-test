@@ -176,31 +176,7 @@ impl TransactionStore for SqliteTransactionStore {
 mod tests {
     use super::*;
     use rust_decimal::Decimal;
-    use std::fs;
-
-    /// A DB path in the OS temp dir, unique per test so parallel test runs don't collide.
-    struct TempDbPath(std::path::PathBuf);
-
-    impl TempDbPath {
-        fn new(name: &str) -> Self {
-            let path = std::env::temp_dir().join(format!(
-                "rust-test-{}-{}-{:?}.sqlite",
-                name,
-                std::process::id(),
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos()
-            ));
-            Self(path)
-        }
-    }
-
-    impl Drop for TempDbPath {
-        fn drop(&mut self) {
-            let _ = fs::remove_file(&self.0);
-        }
-    }
+    use tempfile::NamedTempFile;
 
     fn record(client: u16, tx: u32, amount: &str) -> DepositRecord {
         DepositRecord::new(
@@ -212,16 +188,16 @@ mod tests {
 
     #[test]
     fn get_returns_none_for_unknown_tx() {
-        let db_path = TempDbPath::new("unknown");
-        let store = SqliteTransactionStore::new(&db_path.0, Capacity::Elements(10)).unwrap();
+        let db_path = NamedTempFile::new().unwrap();
+        let store = SqliteTransactionStore::new(db_path.path(), Capacity::Elements(10)).unwrap();
 
         assert!(store.get(TransactionId::new(1)).unwrap().is_none());
     }
 
     #[test]
     fn get_reads_back_record_still_in_memory() {
-        let db_path = TempDbPath::new("in-memory");
-        let mut store = SqliteTransactionStore::new(&db_path.0, Capacity::Elements(10)).unwrap();
+        let db_path = NamedTempFile::new().unwrap();
+        let mut store = SqliteTransactionStore::new(db_path.path(), Capacity::Elements(10)).unwrap();
 
         store.upsert(record(1, 42, "1.5")).unwrap();
 
@@ -236,8 +212,8 @@ mod tests {
 
     #[test]
     fn upsert_flushes_to_sqlite_once_capacity_is_reached() {
-        let db_path = TempDbPath::new("flush");
-        let mut store = SqliteTransactionStore::new(&db_path.0, Capacity::Elements(2)).unwrap();
+        let db_path = NamedTempFile::new().unwrap();
+        let mut store = SqliteTransactionStore::new(db_path.path(), Capacity::Elements(2)).unwrap();
 
         store.upsert(record(1, 1, "10")).unwrap();
         assert_eq!(store.records.len(), 1);
@@ -255,8 +231,8 @@ mod tests {
 
     #[test]
     fn upsert_after_flush_updates_existing_row_in_sqlite() {
-        let db_path = TempDbPath::new("update");
-        let mut store = SqliteTransactionStore::new(&db_path.0, Capacity::Elements(1)).unwrap();
+        let db_path = NamedTempFile::new().unwrap();
+        let mut store = SqliteTransactionStore::new(db_path.path(), Capacity::Elements(1)).unwrap();
 
         // capacity of 1 flushes on every upsert.
         store.upsert(record(1, 7, "5")).unwrap();

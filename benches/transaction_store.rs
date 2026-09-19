@@ -1,5 +1,3 @@
-use std::{fs, path::PathBuf};
-
 use criterion::{
     BatchSize, BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main,
 };
@@ -21,24 +19,6 @@ fn make_record(i: u64) -> DepositRecord {
     let tx = TransactionId::new(i as u32);
     let amount = Amount::try_from(Decimal::new(12345, 4)).unwrap(); // 1.2345
     DepositRecord::new(client, tx, amount)
-}
-
-/// Removes the database file (before and after use) so repeated benchmark
-/// runs always start from a clean slate.
-struct TempDbPath(PathBuf);
-
-impl TempDbPath {
-    fn new(label: &str) -> Self {
-        let path = std::env::temp_dir().join(format!("rust-test-bench-{label}.sqlite"));
-        let _ = fs::remove_file(&path);
-        Self(path)
-    }
-}
-
-impl Drop for TempDbPath {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.0);
-    }
 }
 
 fn bench_upsert(c: &mut Criterion) {
@@ -63,10 +43,10 @@ fn bench_upsert(c: &mut Criterion) {
         });
 
         group.bench_with_input(BenchmarkId::new("sqlite", size), &size, |b, &size| {
-            let db_path = TempDbPath::new(&format!("upsert-{size}"));
+            let db_path = tempfile::NamedTempFile::new().unwrap();
             b.iter_batched(
                 || {
-                    SqliteTransactionStore::new(&db_path.0, Capacity::Elements(SQLITE_CAPACITY))
+                    SqliteTransactionStore::new(db_path.path(), Capacity::Elements(SQLITE_CAPACITY))
                         .unwrap()
                 },
                 |mut store| {
@@ -118,9 +98,9 @@ fn bench_get(c: &mut Criterion) {
             },
         );
 
-        let db_path = TempDbPath::new(&format!("get-{size}"));
+        let db_path = tempfile::NamedTempFile::new().unwrap();
         let mut sqlite_store =
-            SqliteTransactionStore::new(&db_path.0, Capacity::Elements(SQLITE_CAPACITY)).unwrap();
+            SqliteTransactionStore::new(db_path.path(), Capacity::Elements(SQLITE_CAPACITY)).unwrap();
         for i in 0..size {
             sqlite_store.upsert(make_record(i)).unwrap();
         }
