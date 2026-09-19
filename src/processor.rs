@@ -50,7 +50,7 @@ impl<A: AccountStore, D: TransactionStore> TransactionProcessor<A, D> {
                 // Since only deposits can be disputed, we don't need to record this withdrawal in the transaction store
             }
             IncomingTransaction::Dispute { client, tx } => {
-                if let Some(mut transaction) = self.transaction_store.get(tx).unwrap().cloned()
+                if let Some(mut transaction) = self.transaction_store.get(tx).unwrap()
                     && !transaction.is_disputed()
                     && transaction.belongs_to(client)
                 {
@@ -62,7 +62,7 @@ impl<A: AccountStore, D: TransactionStore> TransactionProcessor<A, D> {
                 }
             }
             IncomingTransaction::Resolve { client, tx } => {
-                if let Some(mut transaction) = self.transaction_store.get(tx).unwrap().cloned()
+                if let Some(mut transaction) = self.transaction_store.get(tx).unwrap()
                     && transaction.is_disputed()
                     && transaction.belongs_to(client)
                 {
@@ -74,7 +74,7 @@ impl<A: AccountStore, D: TransactionStore> TransactionProcessor<A, D> {
                 }
             }
             IncomingTransaction::Chargeback { client, tx } => {
-                if let Some(mut transaction) = self.transaction_store.get(tx).unwrap().cloned()
+                if let Some(mut transaction) = self.transaction_store.get(tx).unwrap()
                     && transaction.is_disputed()
                     && transaction.belongs_to(client)
                 {

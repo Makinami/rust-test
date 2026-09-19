@@ -12,7 +12,6 @@ pub enum IncomingTransaction {
     },
     Withdrawal {
         client: ClientId,
-        #[expect(unused)]
         tx: TransactionId,
         amount: Amount,
     },

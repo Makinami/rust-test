@@ -52,6 +52,11 @@ impl AddAssign for Amount {
 }
 
 impl Amount {
+    /// Returns the underlying decimal value, e.g. for persistence.
+    pub fn as_decimal(&self) -> Decimal {
+        self.0
+    }
+
     /// Safely subtracts the given amount from this amount, returning an error if the result would be negative.
     pub fn checked_sub(self, rhs: Self) -> Result<Self, AmountError> {
         if self.0 >= rhs.0 {

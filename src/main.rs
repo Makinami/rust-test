@@ -1,12 +1,8 @@
-mod model;
-mod processor;
-mod store;
-
 use clap::Parser;
 use log::error;
-use model::IncomingTransaction;
-
-use crate::processor::TransactionProcessor;
+use rust_test::model::IncomingTransaction;
+use rust_test::processor::TransactionProcessor;
+use rust_test::store;
 
 #[derive(Parser)]
 #[command(version, about = "Process transaction records from a CSV file")]
@@ -27,9 +23,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .from_path(&path)
         .inspect_err(|_| error!("Failed to open the file: {path}"))?;
 
+    let db_file = tempfile::NamedTempFile::new()?;
+
     let mut processor = TransactionProcessor::new(
         store::InMemoryAccountStore::new(),
-        store::InMemoryTransactionStore::new(),
+        store::SqliteTransactionStore::new(db_file.path(), store::Capacity::Megabytes(100))
+            .inspect_err(|err| error!("Failed to open the SQLite store: {err}"))?,
     );
 
     for transaction in reader.deserialize::<IncomingTransaction>() {
