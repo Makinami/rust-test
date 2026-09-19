@@ -175,14 +175,13 @@ impl TransactionStore for SqliteTransactionStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rust_decimal::Decimal;
     use tempfile::NamedTempFile;
 
-    fn record(client: u16, tx: u32, amount: &str) -> DepositRecord {
+    fn record(client: u16, tx: u32, amount: u32) -> DepositRecord {
         DepositRecord::new(
             ClientId::new(client),
             TransactionId::new(tx),
-            Amount::try_from(amount.parse::<Decimal>().unwrap()).unwrap(),
+            amount.into(),
         )
     }
 
@@ -200,13 +199,13 @@ mod tests {
         let mut store =
             SqliteTransactionStore::new(db_path.path(), Capacity::Elements(10)).unwrap();
 
-        store.upsert(record(1, 42, "1.5")).unwrap();
+        store.upsert(record(1, 42, 15)).unwrap();
 
         let fetched = store.get(TransactionId::new(42)).unwrap().unwrap();
         assert_eq!(fetched.client, ClientId::new(1));
         assert_eq!(
-            fetched.amount.as_decimal(),
-            "1.5".parse::<Decimal>().unwrap()
+            fetched.amount,
+            15u32.into()
         );
         assert!(!fetched.disputed);
     }
@@ -216,18 +215,18 @@ mod tests {
         let db_path = NamedTempFile::new().unwrap();
         let mut store = SqliteTransactionStore::new(db_path.path(), Capacity::Elements(2)).unwrap();
 
-        store.upsert(record(1, 1, "10")).unwrap();
+        store.upsert(record(1, 1, 10)).unwrap();
         assert_eq!(store.records.len(), 1);
 
         // Reaching capacity should flush the cache to SQLite and clear it.
-        store.upsert(record(2, 2, "20")).unwrap();
+        store.upsert(record(2, 2, 20)).unwrap();
         assert_eq!(store.records.len(), 0);
 
         // Both records must still be retrievable, now via the DB read-through path.
         let first = store.get(TransactionId::new(1)).unwrap().unwrap();
-        assert_eq!(first.amount.as_decimal(), "10".parse::<Decimal>().unwrap());
+        assert_eq!(first.amount, 10u32.into());
         let second = store.get(TransactionId::new(2)).unwrap().unwrap();
-        assert_eq!(second.amount.as_decimal(), "20".parse::<Decimal>().unwrap());
+        assert_eq!(second.amount, 20u32.into());
     }
 
     #[test]
@@ -236,7 +235,7 @@ mod tests {
         let mut store = SqliteTransactionStore::new(db_path.path(), Capacity::Elements(1)).unwrap();
 
         // capacity of 1 flushes on every upsert.
-        store.upsert(record(1, 7, "5")).unwrap();
+        store.upsert(record(1, 7, 5)).unwrap();
 
         let mut disputed = store.get(TransactionId::new(7)).unwrap().unwrap();
         disputed.mark_disputed();
@@ -244,6 +243,6 @@ mod tests {
 
         let fetched = store.get(TransactionId::new(7)).unwrap().unwrap();
         assert!(fetched.disputed);
-        assert_eq!(fetched.amount.as_decimal(), "5".parse::<Decimal>().unwrap());
+        assert_eq!(fetched.amount, 5u32.into());
     }
 }

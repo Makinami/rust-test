@@ -88,3 +88,85 @@ impl<'de> Deserialize<'de> for IncomingTransaction {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialize_deposit() {
+        let csv_data = "type,client,tx,amount\n\
+                        deposit,1,1,100.0";
+        let mut rdr = csv::Reader::from_reader(csv_data.as_bytes());
+        let record: IncomingTransaction = rdr.deserialize().next().unwrap().unwrap();
+        match record {
+            IncomingTransaction::Deposit { client, tx, amount } => {
+                assert_eq!(client, ClientId::new(1));
+                assert_eq!(tx, TransactionId::new(1));
+                assert_eq!(amount, 100u32.into());
+            }
+            _ => panic!("Expected Deposit variant"),
+        }
+    }
+
+    #[test]
+    fn test_deserialize_withdrawal() {
+        let csv_data = "type,client,tx,amount\n\
+                        withdrawal,1,1,50.0";
+        let mut rdr = csv::Reader::from_reader(csv_data.as_bytes());
+        let record: IncomingTransaction = rdr.deserialize().next().unwrap().unwrap();
+        match record {
+            IncomingTransaction::Withdrawal { client, tx, amount } => {
+                assert_eq!(client, ClientId::new(1));
+                assert_eq!(tx, TransactionId::new(1));
+                assert_eq!(amount, 50u32.into());
+            }
+            _ => panic!("Expected Withdrawal variant"),
+        }
+    }
+
+    #[test]
+    fn test_deserialize_dispute() {
+        let csv_data = "type,client,tx,amount\n\
+                        dispute,1,1,";
+        let mut rdr = csv::Reader::from_reader(csv_data.as_bytes());
+        let record: IncomingTransaction = rdr.deserialize().next().unwrap().unwrap();
+        match record {
+            IncomingTransaction::Dispute { client, tx } => {
+                assert_eq!(client, ClientId::new(1));
+                assert_eq!(tx, TransactionId::new(1));
+            }
+            _ => panic!("Expected Dispute variant"),
+        }
+    }
+
+    #[test]
+    fn test_deserialize_resolve() {
+        let csv_data = "type,client,tx,amount\n\
+                        resolve,1,1,";
+        let mut rdr = csv::Reader::from_reader(csv_data.as_bytes());
+        let record: IncomingTransaction = rdr.deserialize().next().unwrap().unwrap();
+        match record {
+            IncomingTransaction::Resolve { client, tx } => {
+                assert_eq!(client, ClientId::new(1));
+                assert_eq!(tx, TransactionId::new(1));
+            }
+            _ => panic!("Expected Resolve variant"),
+        }
+    }
+    
+    #[test]
+    fn test_deserialize_chargeback() {
+        let csv_data = "type,client,tx,amount\n\
+                        chargeback,1,1,";
+        let mut rdr = csv::Reader::from_reader(csv_data.as_bytes());
+        let record: IncomingTransaction = rdr.deserialize().next().unwrap().unwrap();
+        match record {
+            IncomingTransaction::Chargeback { client, tx } => {
+                assert_eq!(client, ClientId::new(1));
+                assert_eq!(tx, TransactionId::new(1));
+            }
+            _ => panic!("Expected Chargeback variant"),
+        }
+    }
+}

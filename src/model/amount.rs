@@ -26,6 +26,17 @@ impl Default for Amount {
     }
 }
 
+impl Amount {
+    pub const ZERO: Self = Self(Decimal::ZERO);
+}
+
+// Mainly for convenience when dealing with integer literals.
+impl From<u32> for Amount {
+    fn from(value: u32) -> Self {
+        Self(Decimal::from(value))
+    }
+}
+
 impl TryFrom<Decimal> for Amount {
     type Error = AmountError;
 
