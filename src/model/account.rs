@@ -32,15 +32,20 @@ impl Account {
         self.held
     }
 
-    pub fn total(&self) -> super::Amount {
-        self.available + self.held
+    pub fn total(&self) -> Result<super::Amount, AccountActionError> {
+        self.available
+            .checked_add(self.held)
+            .map_err(|_| AccountActionError::UnsupportedBalanceAmount)
     }
 
     // Balance manipulation methods
 
     pub fn deposit(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
-        self.available += amount;
+        self.available = self
+            .available
+            .checked_add(amount)
+            .map_err(|_| AccountActionError::UnsupportedBalanceAmount)?;
         Ok(())
     }
 
@@ -59,7 +64,10 @@ impl Account {
             .available
             .checked_sub(amount)
             .map_err(|_| AccountActionError::InsufficientAvailableFunds)?;
-        self.held += amount;
+        self.held = self
+            .held
+            .checked_add(amount)
+            .map_err(|_| AccountActionError::UnsupportedBalanceAmount)?;
         Ok(())
     }
 
@@ -69,7 +77,10 @@ impl Account {
             .held
             .checked_sub(amount)
             .map_err(|_| AccountActionError::InsufficientHeldFunds)?;
-        self.available += amount;
+        self.available = self
+            .available
+            .checked_add(amount)
+            .map_err(|_| AccountActionError::UnsupportedBalanceAmount)?;
         Ok(())
     }
 
@@ -100,6 +111,8 @@ pub enum AccountActionError {
     InsufficientHeldFunds,
     #[error("Account is locked")]
     AccountLocked,
+    #[error("Unsupported balance amount")]
+    UnsupportedBalanceAmount,
 }
 
 // Manual impl so the CSV column order/names (client, available, held, total, locked)
@@ -115,7 +128,12 @@ impl serde::Serialize for Account {
         state.serialize_field("client", &self.client_id)?;
         state.serialize_field("available", &self.available)?;
         state.serialize_field("held", &self.held)?;
-        state.serialize_field("total", &self.total())?;
+        state.serialize_field(
+            "total",
+            &self
+                .total()
+                .map_err(|_| serde::ser::Error::custom("Unsupported balance amount"))?,
+        )?;
         state.serialize_field("locked", &self.locked)?;
         state.end()
     }
@@ -131,7 +149,7 @@ mod tests {
         let account = super::Account::new(ClientId::new(1));
         assert_eq!(account.available, Amount::ZERO);
         assert_eq!(account.held, Amount::ZERO);
-        assert_eq!(account.total(), Amount::ZERO);
+        assert_eq!(account.total().unwrap(), Amount::ZERO);
         assert!(!account.locked);
     }
 
@@ -140,7 +158,7 @@ mod tests {
         let mut account = super::Account::new(ClientId::new(1));
         account.available = 2u32.into();
         account.held = 3u32.into();
-        assert_eq!(account.total(), 5u32.into());
+        assert_eq!(account.total().unwrap(), 5u32.into());
     }
 
     #[test]

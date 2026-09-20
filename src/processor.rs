@@ -1,8 +1,7 @@
 use crate::{
-    model::{Account, DepositRecord, IncomingTransaction},
-    store::{AccountStore, TransactionStore},
+    model::{Account, AccountActionError, DepositRecord, IncomingTransaction}, store::{AccountStore, TransactionStore},
 };
-use log::info;
+use log::{error, info};
 
 pub struct TransactionProcessor<A: AccountStore, D: TransactionStore> {
     account_store: A,
@@ -27,11 +26,18 @@ impl<A: AccountStore, D: TransactionStore> TransactionProcessor<A, D> {
         &mut self,
         transaction: IncomingTransaction,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        macro_rules! skip_on_error {
+        macro_rules! assert_result {
             ($obj:ident . $method:ident ( $($args:tt)* )) => {
-                if let Err(err) = $obj.$method($($args)*) {
-                    info!("Ignoring {} transaction due to account state error: {:?}", stringify!($method), err);
-                    return Ok(());
+                match $obj.$method($($args)*) {
+                    Err(AccountActionError::InsufficientAvailableFunds) => {
+                        info!("Ignoring {} transaction due to account state error: {:?}", stringify!($method), AccountActionError::InsufficientAvailableFunds);
+                        return Ok(());
+                    }
+                    Err(AccountActionError::UnsupportedBalanceAmount) => {
+                        error!("Account balance higher than supported");
+                        return Err("Account balance higher than supported".into());
+                    }
+                    _ => {}
                 }
             };
         }
@@ -39,14 +45,14 @@ impl<A: AccountStore, D: TransactionStore> TransactionProcessor<A, D> {
         match transaction {
             IncomingTransaction::Deposit { client, tx, amount } => {
                 let account = self.account_store.get_mut(client);
-                skip_on_error!(account.deposit(amount));
+                assert_result!(account.deposit(amount));
 
                 let transaction = DepositRecord::new(client, tx, amount);
                 self.transaction_store.upsert(transaction)?;
             }
             IncomingTransaction::Withdrawal { client, amount, .. } => {
                 let account = self.account_store.get_mut(client);
-                skip_on_error!(account.withdraw(amount));
+                assert_result!(account.withdraw(amount));
                 // Since only deposits can be disputed, we don't need to record this withdrawal in the transaction store
             }
             IncomingTransaction::Dispute { client, tx } => {
@@ -55,7 +61,7 @@ impl<A: AccountStore, D: TransactionStore> TransactionProcessor<A, D> {
                     && transaction.belongs_to(client)
                 {
                     let account = self.account_store.get_mut(client);
-                    skip_on_error!(account.hold(transaction.amount));
+                    assert_result!(account.hold(transaction.amount));
 
                     transaction.mark_disputed();
                     self.transaction_store.upsert(transaction)?;
@@ -67,7 +73,7 @@ impl<A: AccountStore, D: TransactionStore> TransactionProcessor<A, D> {
                     && transaction.belongs_to(client)
                 {
                     let account = self.account_store.get_mut(client);
-                    skip_on_error!(account.release(transaction.amount));
+                    assert_result!(account.release(transaction.amount));
 
                     transaction.clear_disputed();
                     self.transaction_store.upsert(transaction)?;
@@ -79,7 +85,7 @@ impl<A: AccountStore, D: TransactionStore> TransactionProcessor<A, D> {
                     && transaction.belongs_to(client)
                 {
                     let account = self.account_store.get_mut(client);
-                    skip_on_error!(account.chargeback(transaction.amount));
+                    assert_result!(account.chargeback(transaction.amount));
 
                     transaction.clear_disputed();
                     self.transaction_store.upsert(transaction)?;

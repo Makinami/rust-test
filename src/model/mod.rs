@@ -3,7 +3,7 @@ mod amount;
 mod deposit_record;
 mod incoming_transaction;
 
-pub use account::Account;
+pub use account::{Account, AccountActionError};
 pub use amount::Amount;
 pub use deposit_record::DepositRecord;
 pub use incoming_transaction::IncomingTransaction;
