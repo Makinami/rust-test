@@ -14,7 +14,7 @@ This represents an account where user essentially must make a deposit to continu
 The program supports account balances of up to ~7e24. This is due to using [Decimal](https://docs.rs/rust_decimal/latest/rust_decimal/struct.Decimal.html) as an underlying type.
 The overflow is detected and program exits with an error.
 
-Should a support for higher balances be necessary, only Amount would need to be modified (as explained very briefly in src\model\amount.rs).
+Should a support for higher balances be necessary, only Amount and Balance would need to be modified (as explained very briefly in src\model\amount.rs).
 
 > [!WARNING]
 > While overflow is properly checked during runtime, there are some edge cases of program "correctly" deserializing numbers that Decimal cannot hold without loosing precision.
@@ -38,11 +38,11 @@ Algorithmically speaking, disputing withdrawals might behave along these lines:
 For a withdrawal of A amount
 - dispute  
   held += A
-- resolve?
-  held -= A
+- resolve?  
+  held -= A  
   available += A
-- chargeback?
-  held -= A
+- chargeback?  
+  held -= A  
   lock account?
 
 ## Technicalities
@@ -65,6 +65,6 @@ Up to ~100MB (hardcoded in main) of transaction data is held in memory. Once thi
 
 There are more elaborate (and often better) ways to move data between memory and disk, but for now this should be enough to avoid out-of-memory errors.
 
-### Main() complexity explanation
+### main() complexity explanation
 
 As a simple CLI application current main() structure of spawning and synchronizing multiple tokio task is probably an overkill. This is done only to hint towards one possible implementation (using tokio's mpsc channel) in case such processor would need to be span as e.g. a server and it would accepts many CSV concurrently.
