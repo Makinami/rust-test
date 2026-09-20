@@ -6,6 +6,10 @@ use rust_decimal::Decimal;
 
 use crate::model::{Amount, ClientId, DepositRecord, TransactionId};
 
+// NOTE: This model is called `TransactionStore` since it initially was conceived
+// to handle "all" types of disputable transactions...
+// But it turned out that only deposit transactions can be disputed.
+// The name might need changing. -.-"
 pub trait TransactionStore {
     fn upsert(&mut self, record: DepositRecord) -> Result<(), Box<dyn std::error::Error>>;
 

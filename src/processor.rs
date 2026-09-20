@@ -1,5 +1,6 @@
 use crate::{
-    model::{Account, AccountActionError, DepositRecord, IncomingTransaction}, store::{AccountStore, TransactionStore},
+    model::{Account, AccountActionError, DepositRecord, IncomingTransaction},
+    store::{AccountStore, TransactionStore},
 };
 use log::{error, info};
 
@@ -61,7 +62,7 @@ impl<A: AccountStore, D: TransactionStore> TransactionProcessor<A, D> {
                     && transaction.belongs_to(client)
                 {
                     let account = self.account_store.get_mut(client);
-                    assert_result!(account.hold(transaction.amount));
+                    assert_result!(account.dispute(transaction.amount));
 
                     transaction.mark_disputed();
                     self.transaction_store.upsert(transaction)?;
@@ -73,7 +74,7 @@ impl<A: AccountStore, D: TransactionStore> TransactionProcessor<A, D> {
                     && transaction.belongs_to(client)
                 {
                     let account = self.account_store.get_mut(client);
-                    assert_result!(account.release(transaction.amount));
+                    assert_result!(account.resolve(transaction.amount));
 
                     transaction.clear_disputed();
                     self.transaction_store.upsert(transaction)?;
@@ -110,12 +111,12 @@ mod tests {
         TransactionProcessor::new(InMemoryAccountStore::new(), InMemoryTransactionStore::new())
     }
 
-    fn assert_account_balances(processor: &TestProcessor, client: u16, available: u32, held: u32) {
+    fn assert_account_balances(processor: &TestProcessor, client: u16, available: i32, held: u32) {
         let account = processor
             .accounts()
             .find(|a| a.client_id() == ClientId::new(client))
             .unwrap();
-        assert_eq!(account.available(), available.into());
+        assert_eq!(account.available().unwrap(), available.into());
         assert_eq!(account.held(), held.into());
     }
 
@@ -332,5 +333,29 @@ mod tests {
 
         assert_account_balances(&processor, 1, 0, 100);
         assert!(stored_record(&processor, 7).is_disputed());
+    }
+
+    #[test]
+    fn dispute_can_make_available_funds_negative() {
+        let mut processor = processor();
+        processor
+            .process_transaction(IncomingTransaction::deposit(
+                1u16.into(),
+                1u32.into(),
+                100u32.into(),
+            ))
+            .unwrap();
+        processor
+            .process_transaction(IncomingTransaction::withdrawal(
+                1u16.into(),
+                2u32.into(),
+                50u32.into(),
+            ))
+            .unwrap();
+        processor
+            .process_transaction(IncomingTransaction::dispute(1u16.into(), 1u32.into()))
+            .unwrap();
+
+        assert_account_balances(&processor, 1, -50, 100);
     }
 }

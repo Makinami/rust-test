@@ -69,7 +69,7 @@ struct RawRecord {
     kind: String,
     client: ClientId,
     tx: TransactionId,
-    #[serde(default, deserialize_with = "csv::invalid_option")]
+    #[serde(default)]
     amount: Option<Amount>,
 }
 

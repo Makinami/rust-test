@@ -1,10 +1,12 @@
 mod account;
 mod amount;
+mod balance;
 mod deposit_record;
 mod incoming_transaction;
 
 pub use account::{Account, AccountActionError};
 pub use amount::Amount;
+pub use balance::Balance;
 pub use deposit_record::DepositRecord;
 pub use incoming_transaction::IncomingTransaction;
 

@@ -3,7 +3,7 @@ use thiserror::Error;
 #[derive(Debug, Clone)]
 pub struct Account {
     client_id: super::ClientId,
-    available: super::Amount,
+    total: super::Balance,
     held: super::Amount,
     locked: bool,
 }
@@ -12,7 +12,7 @@ impl Account {
     pub fn new(client_id: super::ClientId) -> Self {
         Self {
             client_id,
-            available: super::Amount::ZERO,
+            total: super::Balance::ZERO,
             held: super::Amount::ZERO,
             locked: false,
         }
@@ -24,46 +24,47 @@ impl Account {
         self.client_id
     }
 
-    pub fn available(&self) -> super::Amount {
-        self.available
+    pub fn available(&self) -> Result<super::Balance, AccountActionError> {
+        self.total
+            .checked_sub(self.held.as_decimal())
+            .map_err(|_| AccountActionError::UnsupportedBalanceAmount)
     }
 
     pub fn held(&self) -> super::Amount {
         self.held
     }
 
-    pub fn total(&self) -> Result<super::Amount, AccountActionError> {
-        self.available
-            .checked_add(self.held)
-            .map_err(|_| AccountActionError::UnsupportedBalanceAmount)
+    pub fn total(&self) -> super::Balance {
+        self.total
     }
 
     // Balance manipulation methods
 
     pub fn deposit(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
-        self.available = self
-            .available
-            .checked_add(amount)
+        self.total = self
+            .total
+            .checked_add(amount.as_decimal())
             .map_err(|_| AccountActionError::UnsupportedBalanceAmount)?;
         Ok(())
     }
 
     pub fn withdraw(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
-        self.available = self
-            .available
-            .checked_sub(amount)
-            .map_err(|_| AccountActionError::InsufficientAvailableFunds)?;
+
+        if self.available()?.as_decimal() < amount.as_decimal() {
+            return Err(AccountActionError::InsufficientAvailableFunds);
+        }
+
+        self.total = self
+            .total
+            .checked_sub(amount.as_decimal())
+            .map_err(|_| AccountActionError::UnsupportedBalanceAmount)?;
         Ok(())
     }
 
-    pub fn hold(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
+    pub fn dispute(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
-        self.available = self
-            .available
-            .checked_sub(amount)
-            .map_err(|_| AccountActionError::InsufficientAvailableFunds)?;
         self.held = self
             .held
             .checked_add(amount)
@@ -71,25 +72,26 @@ impl Account {
         Ok(())
     }
 
-    pub fn release(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
+    pub fn resolve(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
         self.held = self
             .held
             .checked_sub(amount)
             .map_err(|_| AccountActionError::InsufficientHeldFunds)?;
-        self.available = self
-            .available
-            .checked_add(amount)
-            .map_err(|_| AccountActionError::UnsupportedBalanceAmount)?;
         Ok(())
     }
 
     pub fn chargeback(&mut self, amount: super::Amount) -> Result<(), AccountActionError> {
         self.ensure_not_locked()?;
+
         self.held = self
             .held
             .checked_sub(amount)
             .map_err(|_| AccountActionError::InsufficientHeldFunds)?;
+        self.total = self
+            .total
+            .checked_sub(amount.as_decimal())
+            .map_err(|_| AccountActionError::UnsupportedBalanceAmount)?;
         self.locked = true;
         Ok(())
     }
@@ -126,14 +128,9 @@ impl serde::Serialize for Account {
 
         let mut state = serializer.serialize_struct("Account", 5)?;
         state.serialize_field("client", &self.client_id)?;
-        state.serialize_field("available", &self.available)?;
+        state.serialize_field("available", &self.available().unwrap())?;
         state.serialize_field("held", &self.held)?;
-        state.serialize_field(
-            "total",
-            &self
-                .total()
-                .map_err(|_| serde::ser::Error::custom("Unsupported balance amount"))?,
-        )?;
+        state.serialize_field("total", &self.total)?;
         state.serialize_field("locked", &self.locked)?;
         state.end()
     }
@@ -142,47 +139,47 @@ impl serde::Serialize for Account {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Amount, ClientId};
+    use crate::model::{Amount, Balance, ClientId};
 
     #[test]
     fn new_account_has_zero_balances_and_is_not_locked() {
         let account = super::Account::new(ClientId::new(1));
-        assert_eq!(account.available, Amount::ZERO);
+        assert_eq!(account.available().unwrap(), Balance::ZERO);
         assert_eq!(account.held, Amount::ZERO);
-        assert_eq!(account.total().unwrap(), Amount::ZERO);
+        assert_eq!(account.total, Balance::ZERO);
         assert!(!account.locked);
     }
 
     #[test]
-    fn total_is_sum_of_available_and_held() {
+    fn available_is_total_minus_held() {
         let mut account = super::Account::new(ClientId::new(1));
-        account.available = 2u32.into();
-        account.held = 3u32.into();
-        assert_eq!(account.total().unwrap(), 5u32.into());
+        account.total = Balance::from(5i32);
+        account.held = Amount::from(3u32);
+        assert_eq!(account.available().unwrap(), Balance::from(2i32));
     }
 
     #[test]
     fn deposit_increases_available_balance() {
         let mut account = super::Account::new(ClientId::new(1));
-        account.available = 1u32.into();
+        account.total = Balance::from(1i32);
         let amount = 1u32.into();
         account.deposit(amount).unwrap();
-        assert_eq!(account.available, 2u32.into());
+        assert_eq!(account.available().unwrap(), Balance::from(2i32));
     }
 
     #[test]
     fn withdraw_decreases_available_balance() {
         let mut account = super::Account::new(ClientId::new(1));
-        account.available = 2u32.into();
+        account.total = Balance::from(2i32);
         let amount = 1u32.into();
         account.withdraw(amount).unwrap();
-        assert_eq!(account.available, 1u32.into());
+        assert_eq!(account.available().unwrap(), Balance::from(1i32));
     }
 
     #[test]
     fn withdraw_fails_when_insufficient_funds() {
         let mut account = super::Account::new(ClientId::new(1));
-        account.available = 1u32.into();
+        account.total = Balance::from(1i32);
         let amount = 2u32.into();
         assert!(matches!(
             account.withdraw(amount),
@@ -191,43 +188,33 @@ mod tests {
     }
 
     #[test]
-    fn hold_moves_funds_from_available_to_held() {
+    fn dispute_moves_funds_from_available_to_held() {
         let mut account = super::Account::new(ClientId::new(1));
-        account.available = 2u32.into();
+        account.total = Balance::from(2i32);
         let amount = 1u32.into();
-        account.hold(amount).unwrap();
-        assert_eq!(account.available, 1u32.into());
+        account.dispute(amount).unwrap();
+        assert_eq!(account.available().unwrap(), Balance::from(1i32));
         assert_eq!(account.held, 1u32.into());
     }
 
     #[test]
-    fn hold_fails_when_insufficient_available_funds() {
+    fn resolve_moves_funds_from_held_to_available() {
         let mut account = super::Account::new(ClientId::new(1));
-        account.available = 1u32.into();
-        let amount = 2u32.into();
-        assert!(matches!(
-            account.hold(amount),
-            Err(AccountActionError::InsufficientAvailableFunds)
-        ));
-    }
-
-    #[test]
-    fn release_moves_funds_from_held_to_available() {
-        let mut account = super::Account::new(ClientId::new(1));
+        account.total = Balance::from(3i32);
         account.held = 2u32.into();
         let amount = 1u32.into();
-        account.release(amount).unwrap();
-        assert_eq!(account.available, 1u32.into());
+        account.resolve(amount).unwrap();
+        assert_eq!(account.available().unwrap(), Balance::from(2i32));
         assert_eq!(account.held, 1u32.into());
     }
 
     #[test]
-    fn release_fails_when_insufficient_held_funds() {
+    fn resolve_fails_when_insufficient_held_funds() {
         let mut account = super::Account::new(ClientId::new(1));
         account.held = 1u32.into();
         let amount = 2u32.into();
         assert!(matches!(
-            account.release(amount),
+            account.resolve(amount),
             Err(AccountActionError::InsufficientHeldFunds)
         ));
     }
@@ -239,6 +226,7 @@ mod tests {
         let amount = 1u32.into();
         account.chargeback(amount).unwrap();
         assert_eq!(account.held, 1u32.into());
+        assert_eq!(account.total(), Balance::from(-1i32));
         assert!(account.locked);
     }
 
@@ -267,11 +255,11 @@ mod tests {
             Err(AccountActionError::AccountLocked)
         ));
         assert!(matches!(
-            account.hold(Amount::ZERO),
+            account.dispute(Amount::ZERO),
             Err(AccountActionError::AccountLocked)
         ));
         assert!(matches!(
-            account.release(Amount::ZERO),
+            account.resolve(Amount::ZERO),
             Err(AccountActionError::AccountLocked)
         ));
         assert!(matches!(
